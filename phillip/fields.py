@@ -22,4 +22,3 @@ def getPath(obj, path):
 def setPath(obj, path, val):
     obj = getPath(obj, path[:-1])
     setField(obj, path[-1], val)
-

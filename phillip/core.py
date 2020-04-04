@@ -8,18 +8,18 @@ class Core(Default):
     Option('trunk_layers', type=int, nargs='+', default=[], help="Non-recurrent layers."),
     Option('core_layers', type=int, nargs='+', default=[], help="Recurrent layers."),
   ]
-  
+
   _members = [
     #('optimizer', opt.Optimizer),
     ('nl', tfl.NL),
   ]
-  
+
   def __init__(self, input_size, scope='core', **kwargs):
     Default.__init__(self, **kwargs)
-    
+
     with tf.variable_scope(scope):
       prev_size = input_size
-      
+
       with tf.variable_scope("trunk"):
         self.trunk = tfl.Sequential()
         for i, next_size in enumerate(self.trunk_layers):
@@ -27,7 +27,7 @@ class Core(Default):
             self.trunk.append(tfl.FCLayer(prev_size, next_size, self.nl))
           prev_size = next_size
         self.variables = self.trunk.getVariables()
-  
+
       if self.core_layers:
         cells = []
         for i, next_size in enumerate(self.core_layers):
@@ -42,11 +42,10 @@ class Core(Default):
         self.core = None
         self.hidden_size = []
       self.output_size = prev_size
- 
+
   def __call__(self, inputs, state):
     trunk_outputs = self.trunk(inputs)
     if self.core:
       return self.core(trunk_outputs, state)
     else:
       return trunk_outputs, []
-

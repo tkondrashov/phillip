@@ -103,11 +103,11 @@ class SetupUser(Default):
     Option('dump_path', type=str, default=''),
     Option('lcancel_flash', action="store_true", help="flash on lcancel"),
   ]
-  
+
   def __call__(self, user):
     configDir = user + '/Config'
     util.makedirs(configDir)
-    
+
     if self.dump_ppm:
       self.dump_frames = True
 
@@ -129,7 +129,7 @@ class SetupUser(Default):
         port1 = 12 if self.human else 6,
       )
       f.write(dolphin_ini.format(**config_args))
-    
+
     with open(configDir + '/GFX.ini', 'w') as f:
       f.write(gfx_ini.format(
         dump_ppm=self.dump_ppm,
@@ -162,59 +162,59 @@ class DolphinRunner(Default):
     Option('windows', action='store_true', help="set defaults for windows"),
     Option('netplay', type=str, help="join traversal server"),
   ]
-  
+
   _members = [
     ('setupUser', SetupUser)
   ]
-  
+
   def __init__(self, **kwargs):
     Default.__init__(self, init_members=False, **kwargs)
-    
+
     if self.user is None:
       import tempfile
       self.user = tempfile.mkdtemp() + '/'
-    
+
     print("Dolphin user dir", self.user)
-    
+
     #if self.netplay: # need gui version to netplay
     #  index = self.exe.rfind('dolphin-emu') + len('dolphin-emu')
     #  self.exe = self.exe[:index]
-    
+
     if self.gui or self.windows:
       # switch from headless to gui
       if self.exe.endswith("-headless"):
         #self.exe = self.exe[:-9]
         self.exe = self.exe[:-9] + "-nogui"
-      
+
       # Note: newer dolphins use 'DX11', but win-mw is an old fork.
       kwargs.update(
         speed = 1,
         gfx = 'D3D' if self.windows else 'OGL',
       )
-      
+
       if self.mute:
         kwargs.update(audio = 'No audio backend')
       else:
         kwargs.update(audio = 'XAudio2' if self.windows else 'Pulse')
-      
+
     if self.setup:
       self._init_members(**kwargs)
       self.setupUser(self.user)
-  
+
   def __call__(self):
     args = [self.exe, "--user", self.user]
     if not self.netplay:
       args += ["--exec", self.iso]
     if self.movie is not None:
       args += ["--movie", self.movie]
-    
+
     print(args)
     process = subprocess.Popen(args)
-    
+
     if self.netplay:
       import time
       time.sleep(2) # let dolphin window spawn
-      
+
       import pyautogui
       #import ipdb; ipdb.set_trace()
       pyautogui.click(150, 150)
@@ -224,39 +224,39 @@ class DolphinRunner(Default):
 
       time.sleep(0.5)
       pyautogui.hotkey('n') # netplay
-      
+
       time.sleep(1) # allow netplay window time to spawn
-      
+
       #return process
-      
+
       #pyautogui.hotkey('down') # traversal
-      
+
       #for _ in range(3): # move to textbox
       #  pyautogui.hotkey('tab')
-      
+
       #pyautogui.typewrite(self.netplay) # write traversal code
-      
+
       #return process
-      
+
       time.sleep(0.1)
       # connect
       #pyautogui.hotkey('tab')
       pyautogui.hotkey('enter')
 
       #import ipdb; ipdb.set_trace()
-    
+
     return process
 
 def main():
   import argparse
-  
+
   parser = argparse.ArgumentParser()
-  
+
   for opt in DolphinRunner.full_opts():
     opt.update_parser(parser)
-  
+
   args = parser.parse_args()
-  
+
   runner = DolphinRunner(**args.__dict__)
   runner()
 

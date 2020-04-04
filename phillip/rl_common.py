@@ -11,7 +11,7 @@ class RLConfig(Default):
     Option('delay', type=int, default=0, help="frame delay on actions taken"),
     Option('memory', type=int, default=0, help="number of frames to remember"),
   ]
-  
+
   def __init__(self, **kwargs):
     Default.__init__(self, **kwargs)
     self.fps = 60 // self.act_every
@@ -24,4 +24,3 @@ def makeHistory(state, prev_action, memory=0, **unused):
   length = combined.get_shape()[-2].value - memory
   history = [tf.slice(combined, [0, i, 0], [-1, length, -1]) for i in range(memory+1)]
   return tf.concat(axis=2, values=history)
-

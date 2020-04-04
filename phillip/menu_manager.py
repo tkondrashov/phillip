@@ -44,15 +44,15 @@ class MoveTo:
     self.pad = pad
     self.reached = False
     self.relative = relative
-    
+
   def move(self, state):
     x, y = self.locator(state)
-    
+
     if self.relative:
       self.target[0] += x
       self.target[1] += y
       self.relative = False
-    
+
     dx = self.target[0] - x
     dy = self.target[1] - y
     mag = math.sqrt(dx * dx + dy * dy)
@@ -69,10 +69,10 @@ class MoveTo:
 class Wait:
   def __init__(self, frames):
     self.frames = frames
-  
+
   def done(self):
     return self.frames == 0
-  
+
   def move(self, state):
     self.frames -= 1
 
@@ -81,10 +81,10 @@ class Action:
     self.action = action
     self.pad = pad
     self.acted = False
-  
+
   def done(self):
     return self.acted
-  
+
   def move(self, state):
     self.action(self.pad)
     self.acted = True
@@ -93,7 +93,7 @@ class Sequential:
   def __init__(self, *actions):
     self.actions = actions
     self.index = 0
-  
+
   def move(self, state):
     if not self.done():
       action = self.actions[self.index]
@@ -109,14 +109,13 @@ class Parallel:
   def __init__(self, *actions):
     self.actions = actions
     self.complete = False
-  
+
   def move(self, state):
     self.complete = True
     for action in self.actions:
       if not action.done():
         action.move(state)
         self.complete = False
-  
+
   def done(self):
     return self.complete
-

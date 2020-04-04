@@ -1,5 +1,5 @@
 """
-Define SSBM types. 
+Define SSBM types.
 """
 
 from ctypes import *
@@ -30,7 +30,7 @@ class Stick(Structure):
   def reset(self):
     self.x = 0.5
     self.y = 0.5
-  
+
   @classmethod
   def polar(cls, theta, r=1.):
     r /= 2.
@@ -72,7 +72,7 @@ class RealControllerState(Structure):
 
     self.stick_MAIN.reset()
     self.stick_C.reset()
-  
+
 RealControllerState.neutral = RealControllerState()
 
 @pretty_struct
@@ -118,7 +118,7 @@ class GameMemory(Structure):
     ('frame', c_uint),
     ('menu', c_uint),
     ('stage', c_uint),
-    
+
     # stage select screen
     ('sss_cursor_x', c_float),
     ('sss_cursor_y', c_float),
@@ -139,13 +139,13 @@ class SimpleController(object):
   button = attr.ib(default=SimpleButton.NONE)
   stick = attr.ib(default=neutral_stick)
   duration = attr.ib(default=None)
-  
+
   @classmethod
   def init(cls, *args, **kwargs):
     self = cls(*args, **kwargs)
     self.real_controller = self.realController()
     return self
-  
+
   def realController(self):
     controller = RealControllerState()
     if self.button is not SimpleButton.NONE:
@@ -153,7 +153,7 @@ class SimpleController(object):
 
     controller.stick_MAIN = self.stick
     return controller
-  
+
   def banned(self, player, char):
     # toad does weird things. needs investigation
     if char == 'peach' and self.button == SimpleButton.B and self.stick == neutral_stick:
@@ -169,7 +169,7 @@ class SimpleController(object):
     if char in ['fox', 'falco'] and self.button == SimpleButton.B:
       if self.stick[0] > 0.5 and player.x > 0: return True  # don't side-B off the right
       if self.stick[0] < 0.5 and player.x < 0: return True  # don't side-B off the left
-      if self.stick[1] < 0.5:  # shine stall 
+      if self.stick[1] < 0.5:  # shine stall
         if abs(player.x) > 100 or player.y < -5: return True
 
     if char == 'puff':
@@ -180,7 +180,7 @@ class SimpleController(object):
         return True
 
     return False
-  
+
   def send(self, pad, player, char):
     if self.banned(player, char):
       pad.send_controller(RealControllerState.neutral)
@@ -207,7 +207,7 @@ diagonal_controllers = [SimpleController.init(*args) for args in itertools.produ
 class ActionChain(object):
   """
   A list of actions, each with a duration, and the last duration must be None.
-  
+
   TODO: Come up with a better system?
   """
 
@@ -224,7 +224,7 @@ class ActionChain(object):
   def act(self, pad, *args):
     self.actions[self.index].send(pad, *args)
     self.index += 1
-  
+
   def done(self):
     return self.index == len(self.actions)
 
@@ -233,7 +233,7 @@ class ActionSet(object):
   def __init__(self, actions):
     self.actions = list(map(lambda obj: obj if isinstance(obj, list) else [obj], actions))
     self.size = len(actions)
-  
+
   def choose(self, index, act_every):
     return ActionChain(self.actions[index], act_every)
 
@@ -300,7 +300,7 @@ class SimpleStateAction(Structure):
 
 def prepareStateActions(state_actions):
   """Prepares an experience for pickling.
-  
+
   Args:
     state_actions: A value of type (SimpleStateAction * T), or [SimpleStateAction].
   Returns:
@@ -311,7 +311,7 @@ def prepareStateActions(state_actions):
   rewards_ = reward.compute_rewards(vectorized['state'])
   rewards = reward.computeRewardsSA(state_actions)
   assert(np.max(np.abs(rewards_ - rewards)) < 1e-5)
-  
+
   vectorized['reward'] = rewards
   return vectorized
 

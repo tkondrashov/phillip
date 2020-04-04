@@ -46,7 +46,7 @@ def compute_damages(player, lib=np):
 
 def compute_rewards(states, enemies=[0], allies=[1], damage_ratio=0.01, lib=np):
   """Computes rewards from a list of state transitions.
-  
+
   Args:
     states: A structure of numpy arrays of length T, as given by ctype_util.vectorizeCTypes.
     enemies: The list of pids on the enemy team.
@@ -55,14 +55,14 @@ def compute_rewards(states, enemies=[0], allies=[1], damage_ratio=0.01, lib=np):
   Returns:
     A length T numpy array with the rewards on each transition.
   """
-  
+
   players = states['players']
   pids = enemies + allies
 
   deaths = {p : compute_deaths(players[p], lib) for p in pids}
   damages = {p : compute_damages(players[p], lib) for p in pids}
   losses = {p : deaths[p] + damage_ratio * damages[p] for p in pids}
-  
+
   return sum(losses[p] for p in enemies) - sum(losses[p] for p in allies)
 
 
@@ -72,10 +72,10 @@ def distance(state, lib=np):
   y0 = players[0]['y']
   x1 = players[1]['x']
   y1 = players[1]['y']
-  
+
   dx = x1 - x0
   dy = y1 - y0
-  
+
   return -lib.sqrt(lib.square(dx) + lib.square(dy))
 
 

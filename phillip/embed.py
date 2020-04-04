@@ -1,5 +1,5 @@
 """
-Converts SSBM types to Tensorflow types. 
+Converts SSBM types to Tensorflow types.
 """
 
 import tensorflow as tf
@@ -24,51 +24,51 @@ class FloatEmbedding(object):
     self.lower = lower
     self.upper = upper
     self.size = 1
-  
+
   def __call__(self, t, **_):
     if t.dtype is not floatType:
       t = tf.cast(t, floatType)
-    
+
     if self.bias:
       t += self.bias
-    
+
     if self.scale:
       t *= self.scale
-    
+
     if self.lower:
       t = tf.maximum(t, self.lower)
-    
+
     if self.upper:
       t = tf.minimum(t, self.upper)
-    
+
     return tf.expand_dims(t, -1)
-  
+
   def init_extract(self):
     pass
-  
+
   def extract(self, t):
     if self.scale:
       t /= self.scale
-    
+
     if self.bias:
       t -= self.bias
-    
+
     #return t
     return tf.squeeze(t, [-1])
-  
+
   def to_input(self, t):
     return t
-  
+
   def distance(self, predicted, target):
     if target.dtype is not floatType:
       target = tf.cast(target, floatType)
-    
+
     if self.scale:
       target *= self.scale
-    
+
     if self.bias:
       target += self.bias
-    
+
     predicted = tf.squeeze(predicted, [-1])
     return tf.squared_difference(predicted, target)
 
@@ -79,23 +79,23 @@ class OneHotEmbedding(object):
     self.name = name
     self.size = size
     self.input_size = size
-  
+
   def __call__(self, t, residual=False, **_):
     one_hot = tf.one_hot(t, self.size, 1., 0.)
-    
+
     if residual:
       logits = math.log(self.size * 10) * one_hot
       return logits
     else:
       return one_hot
-  
+
   def to_input(self, logits):
     return tf.nn.softmax(logits)
-  
+
   def extract(self, embedded):
     # TODO: pick a random sample?
     return tf.argmax(t, -1)
-  
+
   def distance(self, embedded, target):
     logprobs = tf.nn.log_softmax(embedded)
     target = self(target)
@@ -107,13 +107,13 @@ class LookupEmbedding(object):
     self.name = name
     with tf.variable_scope(name):
       self.table = tfl.weight_variable([input_size, output_size], "table")
-  
+
     self.size = output_size
     self.input_size = input_size
-  
+
   def __call__(self, indices, **kwargs):
     return tf.nn.embedding_lookup(self.table, indices)
-  
+
   def to_input(self, input_):
     # FIXME: "to_input" is the wrong name. model.py uses it to go from logits ("residual" embedding, used for prediction) to probabilites ("input" embedding, used for passing through the network). Here we interpret it as going from embedding space (output_size) to probabilities (input_size), which changes the dimensionality and would break model.py.
     logits = tfl.matmul(input_, tf.transpose(self.table))
@@ -123,70 +123,70 @@ class StructEmbedding(object):
   def __init__(self, name, embedding):
     self.name = name
     self.embedding = embedding
-    
+
     self.size = 0
     for _, op in embedding:
       self.size += op.size
-  
+
   def __call__(self, struct, **kwargs):
     embed = []
-    
+
     rank = None
     for field, op in self.embedding:
       with tf.name_scope(field):
         t = op(struct[field], **kwargs)
-        
+
         if rank is None:
           rank = len(t.get_shape())
         else:
           assert(rank == len(t.get_shape()))
-        
+
         embed.append(t)
     return tf.concat(axis=rank-1, values=embed)
-  
+
   def to_input(self, embedded):
     rank = len(embedded.get_shape())
     begin = (rank-1) * [0]
     size = (rank-1) * [-1]
-    
+
     inputs = []
     offset = 0
-    
+
     for _, op in self.embedding:
       t = tf.slice(embedded, begin + [offset], size + [op.size])
       inputs.append(op.to_input(t))
       offset += op.size
-    
+
     return tf.concat(axis=rank-1, values=inputs)
-  
+
   def extract(self, embedded):
     rank = len(embedded.get_shape())
     begin (rank-1) * [0]
     size = (rank-1) * [-1]
-    
+
     struct = {}
     offset = 0
-    
+
     for field, op in self.embedding:
       t = tf.slice(embedded, begin + [offset], size + [op.size])
       struct[field] = op.extract(t)
       offset += op.size
-    
+
     return struct
-    
+
   def distance(self, embedded, target):
     rank = len(embedded.get_shape())
     begin = (rank-1) * [0]
     size = (rank-1) * [-1]
-    
+
     distances = {}
     offset = 0
-    
+
     for field, op in self.embedding:
       t = tf.slice(embedded, begin + [offset], size + [op.size])
       distances[field] = op.distance(t, target[field])
       offset += op.size
-    
+
     return distances
 
 class ArrayEmbedding(object):
@@ -195,7 +195,7 @@ class ArrayEmbedding(object):
     self.op = op
     self.permutation = permutation
     self.size = len(permutation) * op.size
-  
+
   def __call__(self, array, **kwargs):
     embed = []
     rank = None
@@ -206,59 +206,59 @@ class ArrayEmbedding(object):
           rank = len(t.get_shape())
         else:
           assert(rank == len(t.get_shape()))
-        
+
         embed.append(t)
     return tf.concat(axis=rank-1, values=embed)
-  
+
   def to_input(self, embedded):
     rank = len(embedded.get_shape())
     ts = tf.split(axis=rank-1, num_or_size_splits=len(self.permutation), value=embedded)
     inputs = list(map(self.op.to_input, ts))
     return tf.concat(axis=rank-1, values=inputs)
-  
+
   def extract(self, embedded):
     # a bit suspect here, we can't recreate the original array,
     # only the bits that were embedded. oh well
     array = max(self.permutation) * [None]
-    
+
     ts = tf.split(axis=tf.rank(embedded)-1, num_or_size_splits=len(self.permutation), value=embedded)
-    
+
     for i, t in zip(self.permutation, ts):
       array[i] = self.op.extract(t)
-    
+
     return array
 
   def distance(self, embedded, target):
     distances = []
-  
+
     ts = tf.split(axis=tf.rank(embedded)-1, num_or_size_splits=len(self.permutation), value=embedded)
-    
+
     for i, t in zip(self.permutation, ts):
       distances.append(self.op.distance(t, target[i]))
-    
+
     return distances
 
 class FCEmbedding(Default):
   _options = [
     Option('embed_nl', type=bool, default=True)
   ]
-  
+
   _members = [
     ('nl', tfl.NL)
   ]
 
   def __init__(self, name_, wrapper, size, **kwargs):
     Default.__init__(self, **kwargs)
-    
+
     self.name = name_
-    
+
     if not self.embed_nl:
       self.nl = None
 
     self.wrapper = wrapper
     self.fc = tfl.FCLayer(wrapper.size, size, nl=self.nl)
     self.size = size
-  
+
   def init_extract(self):
     #self.extract = tfl.FCLayer(
     pass
@@ -308,14 +308,14 @@ class PlayerEmbedding(StructEmbedding, Default):
     Option('omit_char', type=bool, default=False),
     Option('frame_scale', type=float, default=.1, help="scale frames"),
   ]
-  
+
   def __init__(self, **kwargs):
     Default.__init__(self, **kwargs)
-    
+
     embedAction = OneHotEmbedding("action_state", numActions)
     if self.action_space:
       embedAction = FCEmbedding("action_state_fc", embedAction, self.action_space, **kwargs)
-    
+
     embedXY = FloatEmbedding("xy", scale=self.xy_scale)
     embedSpeed = FloatEmbedding("speed", scale=self.speed_scale)
     embedFrame = FloatEmbedding("frame", scale=self.frame_scale)
@@ -344,7 +344,7 @@ class PlayerEmbedding(StructEmbedding, Default):
 
       #('controller', embedController)
     ]
-    
+
     StructEmbedding.__init__(self, "player", playerEmbedding)
 
 """
@@ -362,27 +362,27 @@ class GameEmbedding(StructEmbedding, Default):
   _options = [
     Option('player_space', type=int, default=0, help="embed players into PLAYER_SPACE dimensions (deprecated)"),
   ]
-  
+
   _members = [
     ('embedPlayer', PlayerEmbedding)
   ]
-  
+
   def __init__(self, **kwargs):
     Default.__init__(self, **kwargs)
-    
+
     if self.player_space:
       self.embedPlayer = FCEmbedding("player_fc", self.embedPlayer, self.player_space, **kwargs)
-    
+
     players = [0, 1]
     #if self.swap: players.reverse()
-    
+
     gameEmbedding = [
       ('players', ArrayEmbedding("players", self.embedPlayer, players)),
 
       #('frame', c_uint),
       #('stage', embedStage)
     ]
-    
+
     StructEmbedding.__init__(self, "game", gameEmbedding)
 
 """
@@ -406,4 +406,3 @@ embedSimpleController = StructEmbedding(simpleControllerEmbedding)
 
 action_size = len(ssbm.simpleControllerStates)
 """
-

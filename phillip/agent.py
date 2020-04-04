@@ -27,11 +27,11 @@ class Agent(Default):
     Option('real_delay', type=int, default=0, help="amount of delay in environment (due to netplay)"),
     Option('tb', action="store_true", help="log stats to tensorboard"),
   ]
-  
+
   _members = [
     ('actor', actor.Actor)
   ]
-  
+
   def __init__(self, **kwargs):
     Default.__init__(self, **kwargs)
 
@@ -43,18 +43,18 @@ class Agent(Default):
     self.actions = util.CircularQueue(self.actor.config.delay+1, 0)
     self.probs = util.CircularQueue(self.actor.config.delay+1, 1.)
     self.history = util.CircularQueue(array=((self.actor.config.memory+1) * ssbm.SimpleStateAction)())
-    
+
     self.hidden = util.deepMap(np.zeros, self.actor.core.hidden_size)
     self.prev_state = ssbm.GameMemory() # for rewards
     avg_minutes = 30
     self.avg_reward = util.MovingAverage(1./(self.actor.config.fps * 60 * avg_minutes))
-    
+
     self.actor.restore()
     self.global_step = self.actor.get_global_step()
 
     self.dump = self.dump or self.trainer_id or self.trainer_ip
     self.receive = self.dump or self.receive
-    
+
     if self.receive:
       self.update_ip()
       self.make_sockets()
@@ -66,13 +66,13 @@ class Agent(Default):
 
       self.dump_frame = 0
       self.dump_count = 0
-    
+
     if self.disk:
       self.dump_dir = os.path.join(self.actor.path, 'experience')
       print("Dumping to", self.dump_dir)
       util.makedirs(self.dump_dir)
       self.dump_tag = uuid.uuid4().hex
-    
+
     if self.tb:
       self.writer = tf.summary.FileWriterCache.get(self.actor.path)
 
@@ -115,7 +115,7 @@ class Agent(Default):
     self.params_socket = nnpy.Socket(nnpy.AF_SP, nnpy.SUB)
     self.params_socket.setsockopt(nnpy.SUB, nnpy.SUB_SUBSCRIBE, b"")
     self.params_socket.setsockopt(nnpy.SOL_SOCKET, nnpy.RCVMAXSIZE, -1)
-    
+
     address = "tcp://%s:%d" % (self.trainer_ip, util.port(self.actor.path + "/params"))
     print("Connecting params socket to", address)
     self.params_socket.connect(address)
@@ -125,9 +125,9 @@ class Agent(Default):
     # TODO: figure out what's wrong with early frames
     if self.frame_counter < 300:
       return
-    
+
     self.dump_state_actions[self.dump_frame] = state_action
-    
+
     if self.dump_frame == 0:
       self.initial = self.hidden
 
@@ -136,32 +136,32 @@ class Agent(Default):
     if self.dump_frame == self.dump_size:
       self.dump_count += 1
       self.dump_frame = 0
-      
+
       print("Dumping", self.dump_count)
-      
+
       prepared = ssbm.prepareStateActions(self.dump_state_actions)
       prepared['initial'] = self.initial
       prepared['global_step'] = self.global_step
-      
+
       if self.dump:
         self.dump_socket.send(pickle.dumps(prepared))
-      
+
       if self.disk:
         path = os.path.join(self.dump_dir, self.dump_tag + '_%d' % self.dump_count)
         with open(path, 'wb') as f:
           pickle.dump(prepared, f)
 
-  # Given the current state, determine the action you'll take and send it to the Smash emulator. 
+  # Given the current state, determine the action you'll take and send it to the Smash emulator.
   # pad is a "game pad" object, for interfacing with the emulator
   def act(self, state, pad):
     verbose = self.verbose and (self.frame_counter % 600 == 0)
     self.frame_counter += 1
     #verbose = False
-    
+
     if self.action_chain is not None and not self.action_chain.done():
       self.action_chain.act(pad, state.players[self.pid], self.char)
       return
-    
+
     r = reward.computeRewards([self.prev_state, state], damage_ratio=0)[0]
     self.avg_reward.append(r)
     ct.copy(state, self.prev_state)
@@ -174,15 +174,15 @@ class Agent(Default):
 
     if verbose:
       print("score_per_minute: %f" % score_per_minute)
-    
+
     current = self.history.peek()
     current.state = state # copy
-    
+
     # extra copying, oh well
     if self.swap:
       current.state.players[0] = state.players[1]
       current.state.players[1] = state.players[0]
-    
+
     current.prev_action = self.action
 
     self.history.increment()
@@ -191,28 +191,28 @@ class Agent(Default):
     input_dict['hidden'] = self.hidden
     input_dict['delayed_action'] = self.actions.as_list()[1:]
     #print(input_dict['delayed_action'])
-    
+
     (action, prob), self.hidden = self.actor.act(input_dict, verbose=verbose)
 
     #if verbose:
     #  pp.pprint(ct.toDict(state.players[1]))
     #  print(action)
-    
+
     # the delayed action
     self.action = self.actions.push(action)
     current.action = self.action
     current.prob = self.probs.push(prob)
-    
+
     # send a more recent action if the environment itself is delayed (netplay)
     real_action = self.actions[self.real_delay]
     self.action_chain = self.actor.actionType.choose(real_action, self.actor.config.act_every)
     self.action_chain.act(pad, state.players[self.pid], self.char)
-    
+
     self.action_counter += 1
-    
+
     if self.dump or self.disk:
       self.dump_state(current)
-    
+
     if self.reload:
       if self.receive:
         self.receive_params()
@@ -225,12 +225,12 @@ class Agent(Default):
       if self.update_ip():
         self.make_sockets()
 
-  # When called, ask the learner if there are new parameters. 
+  # When called, ask the learner if there are new parameters.
   def receive_params(self):
     import nnpy
     num_blobs = 0
     latest = None
-    
+
     # get the latest update from the trainer
     while True:
       try:
@@ -253,7 +253,7 @@ class Agent(Default):
           break
         # a real error
         raise e
-    
+
     if latest is not None:
       print("Unblobbing", self.global_step)
       self.actor.unblob(latest)

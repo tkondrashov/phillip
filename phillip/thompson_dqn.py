@@ -23,7 +23,7 @@ class ThompsonDQN:
       log_variance = tfl.makeAffineLayer(self.layer_sizes[-1], action_size)
 
     self.layers.append(lambda x: (mean(x), log_variance(x)))
-    
+
     self.rlConfig = rlConfig
     self.epsilon = epsilon
 
@@ -43,12 +43,12 @@ class ThompsonDQN:
 
   def getLoss(self, states, actions, rewards, sarsa=False, **kwargs):
     "Negative Log-Likelihood"
-    
+
     n = self.rlConfig.tdN
     train_length = [config.experience_length - n]
-    
+
     qMeans, qLogVariances = self.getQDists(states)
-    
+
     realQs = tfl.batch_dot(actions, qMeans)
     maxQs = tf.reduce_max(qMeans, 1)
 
@@ -59,10 +59,10 @@ class ThompsonDQN:
     targets = tf.stop_gradient(targets)
 
     trainQs = tf.slice(realQs, [0], train_length)
-    
+
     realLogVariances =  tfl.batch_dot(actions, qLogVariances)
     trainLogVariances = tf.slice(realLogVariances, [0], train_length)
-    
+
     nlls = tf.squared_difference(trainQs, targets) * tf.exp(-trainLogVariances) + trainLogVariances
     nll = tf.reduce_mean(nlls)
     return nll, [("nll", nll)]
@@ -72,15 +72,14 @@ class ThompsonDQN:
     qSTDs = tf.exp(qLogVariances / 2) * temperature
     qDists = tf.concat(axis=2, values=[tf.expand_dims(x, 2) for x in [qMeans, qSTDs]])
     return qDists
-  
+
   def act(self, policy, verbose=False):
     if util.flip(self.epsilon):
       return random.randint(0, self.action_size)
-    
+
     [qDists] = policy
     if verbose:
       print("qDists", qDists)
-    
+
     samples = [random.normal(mean, std) for mean, std in qDists]
     return argmax(samples)
-

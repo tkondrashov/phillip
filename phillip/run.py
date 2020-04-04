@@ -16,7 +16,7 @@ def run(**kwargs):
     params = util.load_params(load, 'agent')
   else:
     params = {}
-  
+
   util.update(params, **kwargs)
   #pp.pprint(params)
 
@@ -25,7 +25,7 @@ def run(**kwargs):
 
   if params.get('user') is None:
     params['user'] = tempfile.mkdtemp() + '/'
-  
+
   if params.get('random_swap'):
     task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
     if task_id is not None:
@@ -61,16 +61,15 @@ def main():
 
   # dolphin options
   parser.add_argument("--dolphin", action="store_true", default=None, help="run dolphin")
-  
+
   parser.add_argument("--random_swap", action="store_true", help="randomly swap players")
 
   for opt in DolphinRunner.full_opts():
     opt.update_parser(parser)
 
   args = parser.parse_args()
-  
+
   run(**args.__dict__)
 
 if __name__ == "__main__":
   main()
-

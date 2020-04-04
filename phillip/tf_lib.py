@@ -24,7 +24,7 @@ class NL(Default):
     Option('nl', type=str, choices=['leaky_relu', 'leaky_softplus', 'elu', 'relu', 'tanh', 'sigmoid'], default='leaky_softplus'),
     Option('alpha', type=float, default=0.01),
   ]
-  
+
   def __call__(self, x):
     if self.nl == 'leaky_relu':
       return leaky_relu(x, self.alpha)
@@ -66,7 +66,7 @@ def sample_variance(xs):
 def stats(xs, name=None, minmax=False):
   mean = tf.reduce_mean(xs)
   std = tf.sqrt(tf.reduce_mean(tf.squared_difference(xs, mean)))
-  
+
   if name:
     tf.summary.scalar(name + '/mean', mean)
     tf.summary.scalar(name + '/std', std)
@@ -84,7 +84,7 @@ def scale_gradient(t, scale):
 
 def windowed(t, n):
   """Gives a windowed view into a Tensor.
-  
+
   Args:
     t: The input Tensor with shape [T, ...]
     n: An integer >= 0.
@@ -102,20 +102,20 @@ def scaled_weight_variable(shape):
     '''
     #input_size = util.product(shape[:-1])
     w = tf.Variable(tf.truncated_normal(shape, stddev=1.0), name='weight')
-    
+
     norms = tf.sqrt(tf.reduce_sum(tf.square(w), list(range(len(shape)-1))))
     w /= norms
-    
+
     scale = tf.Variable(tf.truncated_normal(shape[-1:], stddev=1.0), name='scale')
-    
+
     return scale * w
 
 def weight_init(shape):
     initial = tf.random_normal(shape, stddev=1.0)
-    
+
     norms = tf.sqrt(tf.reduce_sum(tf.square(initial), list(range(len(shape)-1))))
     initial /= norms
-    
+
     return initial
 
 def weight_variable(shape, name="weight"):
@@ -176,12 +176,12 @@ def softmax(x):
   input_rank = tf.shape(input_shape)[0]
   input_size = tf.gather(input_shape, input_rank-1)
   output_shape = input_shape
-  
+
   x = tf.reshape(x, [-1, input_size])
 
   y = tf.nn.softmax(x)
   y = tf.reshape(y, output_shape)
-  
+
   return y
 
 def matmul(v, m):
@@ -194,28 +194,28 @@ def matmul2(x, m, bias=None, nl=None):
   [input_size, output_size] = m.get_shape().as_list()
   input_shape_py = x.get_shape().as_list()
   assert(input_shape_py[-1] == input_size)
-  
+
   input_shape_tf = tf.shape(x)
   batch_rank = len(input_shape_py) - 1
   batch_shape_tf = input_shape_tf[:batch_rank]
   output_shape_tf = tf.concat(axis=0, values=[batch_shape_tf, [output_size]])
-  
+
   squashed = tf.reshape(x, [-1, input_size])
   y = tf.matmul(squashed, m)
-  
+
   if bias is not None:
     y += bias
-  
+
   if nl is not None:
     y = nl(y)
-  
+
   y = tf.reshape(y, output_shape_tf)
-  
+
   # fix shape inference
   output_shape_py = input_shape_py.copy()
   output_shape_py[-1] = output_size
   y.set_shape(output_shape_py)
-  
+
   return y
 
 def cloneVar(var):
@@ -226,56 +226,56 @@ class FCLayer(Default):
     Option("weight_init", default=weight_init),
     Option("bias_init", default=bias_init),
   ]
-  
+
   def __init__(self, input_size=None, output_size=None, nl=None, clone=None, **kwargs):
     if clone:
       self.input_size = clone.input_size
       self.output_size = clone.output_size
       self.nl = clone.nl
-      
+
       self.weight = cloneVar(clone.weight)
       self.bias = cloneVar(clone.bias)
     else:
       Default.__init__(self, **kwargs)
-      
+
       self.input_size = input_size
       self.output_size = output_size
       self.nl = nl
-      
+
       self.weight = tf.Variable(self.weight_init([input_size, output_size]), name="weight")
       self.bias = tf.Variable(self.bias_init([output_size]), name="bias")
-  
+
   def __call__(self, x):
     return matmul2(x, self.weight, self.bias, self.nl)
-    
+
   def clone(self):
     return FCLayer(clone=self)
-  
+
   def assign(self, other):
     return [
       self.weight.assign(other.weight),
       self.bias.assign(other.bias),
     ]
-  
+
   def getVariables(self):
     return [self.weight, self.bias]
 
 class Sequential:
   def __init__(self, *layers):
     self.layers = list(layers)
-  
+
   def append(self, layer):
     self.layers.append(layer)
-  
+
   def __call__(self, x):
     for f in self.layers:
       x = f(x)
     return x
-  
+
   def clone(self):
     layers = [layer.clone() for layer in self.layers]
     return Sequential(*layers)
-  
+
   def assign(self, other):
     assignments = [l1.assign(l2) for l1, l2 in zip(self.layers, other.layers)]
     return list(itertools.chain(*assignments))
@@ -335,17 +335,17 @@ class GRUCell(tf.contrib.rnn.RNNCell):
 
   @property
   def output_size(self):
-    return self._num_units  
-  
+    return self._num_units
+
   def __call__(self, inputs, state):
     ru = tf.sigmoid(matmul2(tf.concat(axis=-1, values=[inputs, state]), self.Wru) + self.bru)
     r, u = tf.split(axis=-1, num_or_size_splits=2, value=ru)
-    
+
     c = self.nl(matmul2(tf.concat(axis=-1, values=[inputs, r * state]), self.Wc) + self.bc)
     new_h = u * state + (1 - u) * c
-    
+
     return new_h, new_h
-  
+
   def getVariables(self):
     return [self.Wru, self.bru, self.Wc, self.bc]
 
@@ -376,78 +376,78 @@ def while_loop(cond, body, initial):
 class TensorArray(object):
   def __init__(self, dtype, size, element_shape):
     self.elems = [None] * size
-  
+
   def write(self, i, t):
     self.elems[i] = t
     return self
-  
+
   def stack(self):
     return tf.stack(self.elems)
 
 def discount(values, gamma, initial=None):
   values = tf.unstack(values, axis=1)
-  
+
   if initial is None:
     current = tf.zeros_like(values[0])
   else:
     current = initial
-  
+
   for i in reversed(range(len(values))):
     current = values[i] + gamma * current
     values[i] = current
-  
+
   return tf.stack(values, axis=1)
 
 def discount2(values, gamma, initial=None):
   """Compute returns from rewards.
-  
+
   Uses tf.while_loop instead of unrolling in python.
-  
+
   Arguments:
     values: Tensor with shape [time, batch]
     gamma: Discount factor.
     initial: Value past the end.
-  
+
   Returns:
     A tensor of discounted returns.
   """
-  
+
   def body(i, prev, returns):
     next = values[i] + gamma * prev
     next.set_shape(prev.get_shape())
-    
+
     returns = returns.write(i, next)
 
     return (i-1, next, returns)
 
   def cond(i, prev, returns):
     return i >= 0
-  
+
   if initial is None:
     initial = tf.zeros(tf.shape(values)[1:], values.dtype)
 
   timesteps = tf.shape(values)[0]
 
   ta = tf.TensorArray(values.dtype, timesteps)
-  
+
   _, _, returns = tf.while_loop(cond, body, (timesteps-1, initial, ta))
-  
+
   return returns.stack()
 
 def testDiscounts():
   values = tf.constant([[1, 2, 3]])
   gamma = 2
   initial = tf.constant([4])
-  
+
   correct = [[49, 24, 11]]
-  
+
   fs = [discount, discount2]
-  
+
   fetches = [f(values, gamma, initial) for f in fs]
 
   sess = tf.Session()
   returns = sess.run(fetches)
-  
+
   for r in returns:
     assert((r == correct).all())
 
@@ -457,7 +457,7 @@ def smoothed_returns(values, rewards, gamma, lambda_, bootstrap, dynamic=True):
   def bellman(future, present):
     v, r, l = present
     return (1. - l) * v + l * (r + gamma * future)
-  
+
   reversed_sequence = [tf.reverse(t, [0]) for t in [values, rewards, lambda_]]
   scan_fn = tf.scan if dynamic else scan
   returns = scan_fn(bellman, reversed_sequence, bootstrap)
@@ -470,16 +470,16 @@ def test_smoothed_returns():
   gamma = 2
   lambda_ = tf.ones([3, 1])
   initial = tf.constant([4.])
-  
+
   correct = [[49], [24], [11]]
-  
+
   fs = [smoothed_returns]
-  
+
   fetches = [f(values, rewards, gamma, lambda_, initial) for f in fs]
 
   sess = tf.Session()
   returns = sess.run(fetches)
-  
+
   for r in returns:
     assert((r == correct).all())
 

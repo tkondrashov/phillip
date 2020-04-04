@@ -77,7 +77,7 @@ def deepValues(obj):
 def deepZip(*objs):
   if len(objs) == 0:
     return []
-  
+
   first = objs[0]
   if isinstance(first, dict):
     return {k : deepZip(*[obj[k] for obj in objs]) for k in first}
@@ -88,7 +88,7 @@ def deepZip(*objs):
 def deepZipWith(f, *objs):
   if len(objs) == 0:
     return []
-  
+
   first = objs[0]
   if isinstance(first, dict):
     return {k : deepZipWith(f, *[obj[k] for obj in objs]) for k in first}
@@ -128,7 +128,7 @@ def product(xs):
 def async_map(f, xs):
   n = len(xs)
   ys = n * [None]
-  
+
   def run(i):
     ys[i] = f(xs[i])
 
@@ -136,12 +136,12 @@ def async_map(f, xs):
   for i in range(n):
     threads[i] = Thread(target=run, args=[i])
     threads[i].start()
-  
+
   def wait():
     for p in threads:
       p.join()
     return ys
-  
+
   return wait
 
 def chunk(l, n):
@@ -151,14 +151,14 @@ class MovingAverage:
   def __init__(self, rate=1e-2, initial=0):
     self.rate = rate
     self.avg = initial
-  
+
   def append(self, val):
     self.avg += self.rate * (val - self.avg)
 
 class Timer:
   def reset(self):
     self.time = time.time()
-  
+
   def split(self):
     now = time.time()
     delta = now - self.time
@@ -174,25 +174,25 @@ class CircularQueue:
       self.size = size
       self.array = [init] * size
     self.index = 0
-  
+
   def push(self, obj):
     self.array[self.index] = obj
     self.increment()
     return self.array[self.index]
-  
+
   def peek(self):
     return self.array[self.index]
-  
+
   def increment(self):
     self.index += 1
     self.index %= self.size
-  
+
   def __getitem__(self, index):
     return self.array[(self.size + self.index + index) % self.size]
-  
+
   def __len__(self):
     return self.size
-  
+
   def as_list(self):
     return self.array[self.index:] + self.array[:self.index]
 
@@ -220,11 +220,10 @@ def load_params(path, key=None):
   import json
   with open(path + '/params') as f:
     params = json.load(f)
-  
+
   # support old-style separation of params into train and agent
   if key and key in params:
     params.update(params[key])
-  
+
   params.update(path=path)
   return params
-

@@ -6,7 +6,7 @@ short_hop = dict(
   sheik = 2,
   pichu = 2,
   pikachu = 2,
-  
+
   dr_mario = 3,
   mario = 3,
   luigi = 3,
@@ -15,7 +15,7 @@ short_hop = dict(
   young_link = 3,
   gnw = 3,
   marth = 3,
-  
+
   peach = 4,
   yoshi = 4,
   dk = 4,
@@ -23,11 +23,10 @@ short_hop = dict(
   puff = 4,
   mewtwo = 4,
   roy = 4,
-  
+
   ganon = 5,
   zelda = 5,
   link = 5,
-  
+
   bowser = 7
 )
-

@@ -6,14 +6,14 @@ import socket
 
 def parseMessage(message):
   lines = message.splitlines()
-  
+
   assert(len(lines) % 2 == 0)
 
   diffs = util.chunk(lines, 2)
-  
+
   for diff in diffs:
     diff[1] = binascii.unhexlify(diff[1].zfill(8))
-  
+
   return diffs
 
 class MemoryWatcherZMQ:
@@ -33,17 +33,17 @@ class MemoryWatcherZMQ:
       self.socket.bind("tcp://127.0.0.1:%d" % port)
     else:
       raise Exception("Must specify path or port.")
-    
+
     self.messages = None
-  
+
   def get_messages(self):
     if self.messages is None:
       message = self.socket.recv()
       message = message.decode('utf-8')
       self.messages = parseMessage(message)
-    
+
     return self.messages
-  
+
   def advance(self):
     if not self.pull:
       self.socket.send(b'')
@@ -69,16 +69,15 @@ class MemoryWatcher:
   def __del__(self):
     """Closes the socket."""
     self.sock.close()
-  
+
   def get_messages(self):
     try:
       data = self.sock.recv(1024).decode('utf-8')
       data = data.strip('\x00')
     except socket.timeout:
       return []
-    
+
     return parseMessage(data)
-    
+
   def advance(self):
     pass
-

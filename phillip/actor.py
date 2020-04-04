@@ -8,10 +8,10 @@ class Actor(RL.RL):
   def __init__(self, **kwargs):
     super(Actor, self).__init__(**kwargs)
 
-    with self.graph.as_default(), tf.device(self.device): 
+    with self.graph.as_default(), tf.device(self.device):
       if self.predict: self._init_model(**kwargs)
       self._init_policy(**kwargs)
-      
+
       # build computation graph
       self.input = ct.inputCType(ssbm.SimpleStateAction, [self.config.memory+1], "input")
       self.input['delayed_action'] = tf.placeholder(tf.int64, [self.config.delay], "delayed_action")
@@ -26,19 +26,19 @@ class Actor(RL.RL):
       inputs = tf.concat(axis=-1, values=history)
       core_output, hidden_state = self.core(inputs, batch_input['hidden'])
       actions = self.embedAction(batch_input['delayed_action'])
-      
+
       if self.predict:
         predict_actions = actions[:, :self.model.predict_steps]
         delayed_actions = actions[:, self.model.predict_steps:]
         core_output = self.model.predict(history, core_output, hidden_state, predict_actions, batch_input['state'])
       else:
         delayed_actions = actions
-      
+
       batch_policy = self.policy.getPolicy(core_output, delayed_actions), hidden_state
       self.run_policy = util.deepMap(lambda t: tf.squeeze(t, [0]), batch_policy)
 
       self.check_op = tf.no_op() if self.dynamic else tf.add_check_numerics_ops()
-      
+
       self._finalize_setup()
 
   def act(self, input_dict, verbose=False):

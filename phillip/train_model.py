@@ -1,5 +1,5 @@
 """
-Alternative to train.py. Not run by default. 
+Alternative to train.py. Not run by default.
 
 (Alex Zhu 5/28/18: not tested, might not run properly)
 """
@@ -20,7 +20,7 @@ class ModelTrainer(Default):
     Option('file_limit', type=int, default=0, help="0 means no limit"),
     Option('epochs', type=int, default=1000000),
   ]
-  
+
   _members = [
     ('learner', learner.Learner),
   ]
@@ -30,7 +30,7 @@ class ModelTrainer(Default):
       args = {}
     else:
       args = util.load_params(load, 'train')
-    
+
     util.pp.pprint(args)
     Default.__init__(self, **args)
 
@@ -39,9 +39,9 @@ class ModelTrainer(Default):
       self.learner.save()
     else:
       self.learner.restore()
-    
+
     print("Loading experiences from", self.data)
-    
+
     start_time = time.time()
     self.experiences = hickle.load(self.data)
     print("Loaded experiences in %d seconds." % (time.time() - start_time))
@@ -51,23 +51,23 @@ class ModelTrainer(Default):
   def train(self):
     shape = self.experiences['action'].shape
     data_size = shape[0]
-    
+
     batches = []
     for i in range(0, data_size, self.batch_size):
       batches.append(util.deepMap(lambda t: t[i:i+self.batch_size], self.experiences))
-  
+
     valid_batches = batches[:self.valid_batches]
     train_batches = batches[self.valid_batches:]
-    
+
     for epoch in range(self.epochs):
       print("Epoch", epoch)
       start_time = time.time()
-      
+
       for batch in train_batches:
         self.learner.train(batch, log=False, zipped=True)
-      
-      print(time.time() - start_time) 
-      
+
+      print(time.time() - start_time)
+
       for batch in valid_batches:
         self.learner.train(batch, train=False, zipped=True)
 
@@ -88,4 +88,3 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
   main(**args.__dict__)
-

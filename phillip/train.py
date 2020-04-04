@@ -54,11 +54,11 @@ class Trainer(Default):
     Option('objgraph', type=int, default=0, help='use objgraph to track memory usage'),
     Option('diff_objects', action='store_true', help='print new objects on each iteration')
   ]
-  
+
   _members = [
     ("learner", learner.Learner),
   ]
-  
+
   def __init__(self, load=None, **kwargs):
     if load is None:
       args = {}
@@ -88,18 +88,18 @@ class Trainer(Default):
 
     self.sweep_size = self.batch_size
     print("Sweep size", self.sweep_size)
-    
+
     if self.init:
       self.learner.init()
       self.learner.save()
     else:
       self.learner.restore()
-    
+
     self.last_save = time.time()
-  
+
   def save(self):
     current_time = time.time()
-    
+
     if current_time - self.last_save > 60 * self.save_interval:
       try:
         self.learner.save()
@@ -110,21 +110,21 @@ class Trainer(Default):
   def selection(self):
     reward = self.learner.get_reward()
     print("Evolving. Current reward %f" % reward)
-    
+
     target_id = random.randint(0, self.pop_size-2)
     if target_id >= self.learner.pop_id:
       target_id += 1
     print("Selection candidate: %d" % target_id)
-    
+
     target_path = os.path.join(self.learner.root, str(target_id))
     latest_ckpt = tf.train.latest_checkpoint(target_path)
     reader = tf.train.NewCheckpointReader(latest_ckpt)
     target_reward = reader.get_tensor('avg_reward')
-    
+
     if target_reward - reward < self.reward_cutoff:
       print("Target reward %f too low." % target_reward)
       return False
-    
+
     print("Selecting %d" % target_id)
     self.learner.restore(latest_ckpt)
     return True
@@ -135,10 +135,10 @@ class Trainer(Default):
     sweeps = 0
     step = 0
     global_step = self.learner.get_global_step()
-    
+
     times = ['min_collect', 'extra_collect', 'train', 'save']
     averages = {name: util.MovingAverage(.1) for name in times}
-    
+
     timer = util.Timer()
     def split(name):
       averages[name].append(timer.split())
@@ -146,7 +146,7 @@ class Trainer(Default):
     num_fresh = max(self.min_collect, int((1 - self.buffer_ratio) * self.batch_size))
     num_old = self.batch_size - num_fresh
     print("num_old", num_old, "num_fresh", num_fresh)
-      
+
     def pull_experience(block=True):
       exp = self.experience_socket.recv(flags=0 if block else nnpy.DONTWAIT)
       return pickle.loads(exp)
@@ -158,11 +158,11 @@ class Trainer(Default):
       print("Filling replay buffer")
       replay_buffer = util.CircularQueue(array=[pull_experience() for _ in range(self.max_buffer)])
       print("Filled replay buffer")
-    
+
     while sweeps != self.sweep_limit:
       sweeps += 1
       timer.reset()
-      
+
       #print('Start: %s' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
       if self.max_age is not None:
@@ -220,7 +220,7 @@ class Trainer(Default):
 
       #print('After collect: %s' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
       split('extra_collect')
-      
+
       try:
         train_out = self.learner.train(
             experiences, self.batch_steps,
@@ -239,7 +239,7 @@ class Trainer(Default):
       if use_replay:
         for exp in new_experiences:
           replay_buffer.push(exp)
-      
+
       #print('After train: %s' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
       split('train')
 
@@ -258,10 +258,10 @@ class Trainer(Default):
         #print('After send: %s' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
       self.save()
-      
+
       #print('After save: %s' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
       split('save')
-      
+
       if self.diff_objects:
         after = count_objects()
         print(diff_objects(after, before))
@@ -278,14 +278,14 @@ class Trainer(Default):
         import objgraph
         #gc.collect()  # don't care about stuff that would be garbage collected properly
         objgraph.show_growth()
-  
+
   def fake_train(self):
     experience = (ssbm.SimpleStateAction * self.learner.config.experience_length)()
     experience = ssbm.prepareStateActions(experience)
     experience['initial'] = util.deepMap(np.zeros, self.learner.core.hidden_size)
-    
+
     experiences = [experience] * self.batch_size
-    
+
     # For more advanced usage, user can control the tracing steps and
     # dumping steps. User can also run online profiling during training.
     #
@@ -319,7 +319,7 @@ if __name__ == '__main__':
 
   for opt in ActorCritic.full_opts():
     opt.update_parser(parser)
-      
+
   parser.add_argument('--fake', action='store_true', help='Train on fake experiences for debugging.')
 
   args = parser.parse_args()
@@ -328,4 +328,3 @@ if __name__ == '__main__':
     trainer.fake_train()
   else:
     trainer.train()
-

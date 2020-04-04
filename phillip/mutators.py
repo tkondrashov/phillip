@@ -7,4 +7,3 @@ def relative(factor):
     flip = tf.distributions.Bernoulli(.5).sample()
     return x * tf.where(tf.cast(flip, tf.bool), factor, inverse)
   return mutate
-
